@@ -31,7 +31,7 @@
                     animation: { 'fade': 'fadeIn 0.2s ease-out' },
                     keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'scale(0.98)' }, '100%': { opacity: '1', transform: 'scale(1)' } } },
                     boxShadow: {
-                        'card': '0 4px 20px -2px rgba(124, 58, 237, 0.1)', // Ombra viola morbida
+                        'card': '0 4px 20px -2px rgba(124, 58, 237, 0.1)', 
                         'btn': '0 4px 12px rgba(124, 58, 237, 0.25)', 
                     }
                 }
@@ -43,7 +43,6 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f5f3ff; color: #1e1b4b; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        /* Feedback tattile migliorato */
         .tap-effect:active { transform: scale(0.96); opacity: 0.9; transition: transform 0.1s; }
         .spin-icon { animation: spin 0.5s linear; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -108,7 +107,7 @@
         let state = { tab: 'home', rewardSubTab: 'shop', coins: 0, pool: [], slots: [], rewards: [{ id: 'r1', title: 'Caffè', cost: 40 }], inventory: [], isSpinning: false };
 
         function init() {
-            const saved = localStorage.getItem('muoviti_mobile_v4');
+            const saved = localStorage.getItem('muoviti_mobile_v5');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
@@ -121,9 +120,9 @@
             }
             render();
         }
-        function save() { localStorage.setItem('muoviti_mobile_v4', JSON.stringify(state)); }
+        function save() { localStorage.setItem('muoviti_mobile_v5', JSON.stringify(state)); }
 
-        // --- ACTIONS ---
+        // --- ACTIONS (NO CONFIRM) ---
         function router(t) { state.tab = t; render(); }
         
         function toggleSlot(id) { 
@@ -142,7 +141,7 @@
         }
 
         function regenerateWeek() {
-            if(!confirm("Reset settimana?")) return;
+            // NO CONFIRM
             state.slots = state.slots.map(s => {
                 const src = state.pool.filter(p => p.type === s.ex.type);
                 const ex = src.length > 0 ? src[Math.floor(Math.random() * src.length)] : s.ex;
@@ -158,7 +157,12 @@
             save(); render();
         }
         
-        function removeSlot(id) { if(confirm("Rimuovere?")) { state.slots = state.slots.filter(s => s.instanceId !== id); save(); render(); } }
+        function removeSlot(id) { 
+            // NO CONFIRM
+            state.slots = state.slots.filter(s => s.instanceId !== id); 
+            save(); 
+            render(); 
+        }
         
         // --- MODAL VIEW ---
         function viewSlot(id) {
@@ -211,10 +215,32 @@
             if(mode==='edit') state.pool = state.pool.map(p => p.id === id ? newItem : p); else state.pool.push(newItem);
             save(); document.getElementById('modal-overlay').classList.add('hidden'); render();
         }
-        function deletePoolItem(id) { if(confirm("Eliminare?")) { state.pool = state.pool.filter(p => p.id !== id); save(); render(); } }
+        function deletePoolItem(id) { 
+            // NO CONFIRM
+            state.pool = state.pool.filter(p => p.id !== id); 
+            save(); 
+            render(); 
+        }
         function setRewardTab(t) { state.rewardSubTab = t; render(); }
-        function buyReward(id) { const r = state.rewards.find(x => x.id === id); if(state.coins >= r.cost && confirm(`Riscatto?`)) { state.coins -= r.cost; state.inventory.push({...r, uniqueId: Date.now()}); save(); render(); } }
-        function useCoupon(uid) { if(confirm("Usare?")) { state.inventory = state.inventory.filter(i => i.uniqueId !== uid); save(); render(); } }
+        
+        function buyReward(id) { 
+            const r = state.rewards.find(x => x.id === id); 
+            // NO CONFIRM CHECK
+            if(state.coins >= r.cost) { 
+                state.coins -= r.cost; 
+                state.inventory.push({...r, uniqueId: Date.now()}); 
+                save(); 
+                render(); 
+            } 
+        }
+
+        function useCoupon(uid) { 
+            // NO CONFIRM
+            state.inventory = state.inventory.filter(i => i.uniqueId !== uid); 
+            save(); 
+            render(); 
+        }
+
         function addReward(e) { e.preventDefault(); const fd = new FormData(e.target); state.rewards.push({ id: Date.now().toString(), title: fd.get('title'), cost: parseInt(fd.get('cost')) }); e.target.reset(); save(); render(); }
 
         // --- RENDER ---
