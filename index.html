@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Muoviti Pigrona</title>
+
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#f5f3ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#f5f3ff', // Viola Pastello Sfondo
+                        surface: '#ffffff', 
+                        primary: '#7c3aed', // Viola Vioal (Violet-600)
+                        primaryLight: '#ede9fe', // Viola Chiarissimo (Violet-100)
+                        primaryDark: '#5b21b6', // Viola Scuro
+                        textMain: '#1e1b4b', // Indigo scuro (quasi nero)
+                        textSub: '#6b7280', // Grigio
+                        success: '#10b981', // Verde smeraldo
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'fade': 'fadeIn 0.2s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'scale(0.98)' }, '100%': { opacity: '1', transform: 'scale(1)' } } },
+                    boxShadow: {
+                        'card': '0 4px 20px -2px rgba(124, 58, 237, 0.1)', // Ombra viola morbida
+                        'btn': '0 4px 12px rgba(124, 58, 237, 0.25)', 
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f5f3ff; color: #1e1b4b; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* Feedback tattile migliorato */
+        .tap-effect:active { transform: scale(0.96); opacity: 0.9; transition: transform 0.1s; }
+        .spin-icon { animation: spin 0.5s linear; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .pt-safe { padding-top: env(safe-area-inset-top, 24px); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 24px); }
+    </style>
+</head>
+<body class="bg-bg h-[100dvh] flex flex-col max-w-md mx-auto relative font-sans shadow-2xl">
+
+    <div class="bg-bg/90 backdrop-blur-md px-6 py-5 pt-safe flex justify-between items-center border-b border-white/50 z-10 sticky top-0">
+        <div>
+            <h1 class="text-2xl font-black tracking-tight text-primary">MUOVITI.</h1>
+            <p class="text-xs text-textSub font-semibold">Basta scuse, pigrona.</p>
+        </div>
+        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-card border border-primaryLight">
+            <div class="w-3 h-3 rounded-full bg-yellow-400 border-2 border-yellow-200"></div>
+            <span id="coin-display" class="font-black text-xl text-primaryDark">0</span>
+        </div>
+    </div>
+
+    <div id="app" class="flex-1 overflow-y-auto p-5 pb-36 no-scrollbar"></div>
+
+    <nav class="bg-white border-t border-primaryLight flex justify-around items-center p-3 pb-safe z-50 absolute bottom-0 w-full shadow-[0_-10px_30px_rgba(124,58,237,0.05)]">
+        <button onclick="router('home')" class="nav-btn group flex flex-col items-center gap-1 w-20 tap-effect" id="nav-home">
+            <div class="p-3 rounded-2xl transition-all group-[.active]:bg-primaryLight group-[.active]:text-primary text-gray-400">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <span class="text-[10px] font-bold group-[.active]:text-primary text-gray-400">Home</span>
+        </button>
+        <button onclick="router('library')" class="nav-btn group flex flex-col items-center gap-1 w-20 tap-effect" id="nav-library">
+            <div class="p-3 rounded-2xl transition-all group-[.active]:bg-primaryLight group-[.active]:text-primary text-gray-400">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            </div>
+            <span class="text-[10px] font-bold group-[.active]:text-primary text-gray-400">Archivio</span>
+        </button>
+        <button onclick="router('rewards')" class="nav-btn group flex flex-col items-center gap-1 w-20 tap-effect" id="nav-rewards">
+            <div class="p-3 rounded-2xl transition-all group-[.active]:bg-primaryLight group-[.active]:text-primary text-gray-400">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 12 20 22 4 22 4 12"/><rect width="20" height="5" x="2" y="7"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+            </div>
+            <span class="text-[10px] font-bold group-[.active]:text-primary text-gray-400">Premi</span>
+        </button>
+    </nav>
+
+    <div id="modal-overlay" class="hidden fixed inset-0 bg-primaryDark/30 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center sm:p-4">
+        <div class="bg-surface w-full max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-8 animate-fade shadow-2xl pb-safe" id="modal-content"></div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(e => console.log(e)));
+        }
+
+        // --- STATE ---
+        const DEFAULT_POOL = [
+            { id: '1', title: 'Deep Work', desc: '45 minuti di concentrazione totale. Niente telefono.', min: 45, coins: 50, type: 'long' },
+            { id: '2', title: 'Lettura', desc: 'Leggi almeno 20 pagine di un libro.', min: 30, coins: 30, type: 'long' },
+            { id: '3', title: 'Acqua', desc: 'Bevi un bel bicchiere d\'acqua fresca.', min: 2, coins: 5, type: 'short' },
+            { id: '4', title: 'Stretching', desc: 'Allunga la schiena e il collo.', min: 5, coins: 10, type: 'short' },
+            { id: '5', title: 'Camminata', desc: 'Fai il giro dell\'isolato.', min: 15, coins: 15, type: 'short' }
+        ];
+
+        let state = { tab: 'home', rewardSubTab: 'shop', coins: 0, pool: [], slots: [], rewards: [{ id: 'r1', title: 'Caffè', cost: 40 }], inventory: [], isSpinning: false };
+
+        function init() {
+            const saved = localStorage.getItem('muoviti_mobile_v4');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed };
+                    if(!state.pool || state.pool.length === 0) state.pool = [...DEFAULT_POOL];
+                } catch(e) {}
+            } else {
+                state.pool = [...DEFAULT_POOL];
+                state.slots = [{ instanceId: 101, ex: state.pool[0], completed: false }, { instanceId: 102, ex: state.pool[2], completed: false }];
+            }
+            render();
+        }
+        function save() { localStorage.setItem('muoviti_mobile_v4', JSON.stringify(state)); }
+
+        // --- ACTIONS ---
+        function router(t) { state.tab = t; render(); }
+        
+        function toggleSlot(id) { 
+            const s = state.slots.find(x => x.instanceId === id); 
+            if(s){ s.completed = !s.completed; state.coins += s.completed ? s.ex.coins : -s.ex.coins; save(); render(); } 
+        }
+
+        function regenerateSlot(id, type) {
+            const curr = state.slots.find(s => s.instanceId === id);
+            const src = state.pool.filter(p => p.type === type);
+            if(src.length === 0) return alert("Archivio vuoto!");
+            document.getElementById(`regen-btn-${id}`)?.classList.add('spin-icon');
+            curr.ex = src[Math.floor(Math.random() * src.length)];
+            curr.completed = false;
+            save(); setTimeout(render, 300);
+        }
+
+        function regenerateWeek() {
+            if(!confirm("Reset settimana?")) return;
+            state.slots = state.slots.map(s => {
+                const src = state.pool.filter(p => p.type === s.ex.type);
+                const ex = src.length > 0 ? src[Math.floor(Math.random() * src.length)] : s.ex;
+                return { ...s, ex: ex, completed: false };
+            });
+            save(); render();
+        }
+
+        function addSlot(type) {
+            const src = state.pool.filter(p => p.type === type);
+            if(src.length === 0) return alert("Archivio vuoto.");
+            state.slots.push({ instanceId: Date.now(), ex: src[Math.floor(Math.random() * src.length)], completed: false });
+            save(); render();
+        }
+        
+        function removeSlot(id) { if(confirm("Rimuovere?")) { state.slots = state.slots.filter(s => s.instanceId !== id); save(); render(); } }
+        
+        // --- MODAL VIEW ---
+        function viewSlot(id) {
+            const s = state.slots.find(x => x.instanceId === id); if(!s) return;
+            const i = s.ex;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            document.getElementById('modal-content').innerHTML = `
+                <div class="text-center space-y-6">
+                    <div class="inline-block bg-primaryLight text-primaryDark font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider mb-2">${i.type}</div>
+                    <h3 class="font-black text-3xl text-textMain leading-tight">${i.title}</h3>
+                    <div class="flex justify-center gap-4">
+                        <div class="bg-bg p-4 rounded-2xl w-28 border border-primaryLight/50">
+                            <div class="text-[10px] uppercase text-textSub font-bold">Durata</div>
+                            <div class="text-xl font-black text-textMain">${i.min}m</div>
+                        </div>
+                        <div class="bg-bg p-4 rounded-2xl w-28 border border-primaryLight/50">
+                            <div class="text-[10px] uppercase text-textSub font-bold">Punti</div>
+                            <div class="text-xl font-black text-primary">+${i.coins}</div>
+                        </div>
+                    </div>
+                    <p class="text-textSub text-base font-medium leading-relaxed bg-bg p-5 rounded-2xl">${i.desc || 'Nessuna descrizione.'}</p>
+                    <button onclick="document.getElementById('modal-overlay').classList.add('hidden')" class="w-full py-4 text-base font-bold bg-primary text-white rounded-2xl shadow-btn tap-effect">Chiudi</button>
+                </div>
+            `;
+        }
+
+        // --- CRUD MODALS ---
+        function openModal(mode, id = null) {
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            let item = { title: '', desc: '', min: '', coins: '' };
+            if(mode === 'edit' && id) item = state.pool.find(p => p.id === id);
+            document.getElementById('modal-content').innerHTML = `
+                <h3 class="font-black text-2xl mb-6 text-primaryDark">${mode === 'edit' ? 'Modifica' : 'Nuovo'} Esercizio</h3>
+                <form onsubmit="submitForm(event, '${mode}', '${id||''}')" class="space-y-4">
+                    <input name="title" value="${item.title}" placeholder="Titolo Esercizio" class="w-full bg-bg p-4 rounded-2xl text-base font-bold outline-none border-2 border-transparent focus:border-primary focus:bg-white transition-colors" required />
+                    <textarea name="desc" placeholder="Descrizione (Cosa devi fare?)" class="w-full bg-bg p-4 rounded-2xl text-base outline-none border-2 border-transparent focus:border-primary focus:bg-white transition-colors resize-none" rows="3">${item.desc}</textarea>
+                    <div class="flex gap-3">
+                        <input name="min" type="number" value="${item.min}" placeholder="Minuti" class="w-1/2 bg-bg p-4 rounded-2xl text-base font-bold outline-none border-2 border-transparent focus:border-primary focus:bg-white" required />
+                        <input name="coins" type="number" value="${item.coins}" placeholder="Punti" class="w-1/2 bg-bg p-4 rounded-2xl text-base font-bold outline-none border-2 border-transparent focus:border-primary focus:bg-white" required />
+                    </div>
+                    <div class="flex gap-3 mt-6">
+                        <button type="button" onclick="document.getElementById('modal-overlay').classList.add('hidden')" class="flex-1 py-4 text-sm font-bold text-textSub bg-bg hover:bg-gray-200 rounded-2xl tap-effect">Annulla</button>
+                        <button type="submit" class="flex-1 py-4 text-sm font-bold bg-primary text-white rounded-2xl shadow-btn tap-effect">Salva</button>
+                    </div>
+                </form>`;
+        }
+        function submitForm(e, mode, id) {
+            e.preventDefault(); const fd = new FormData(e.target); const min = parseInt(fd.get('min'));
+            const newItem = { id: mode==='edit'?id:Date.now().toString(), title: fd.get('title'), desc: fd.get('desc'), min, coins: parseInt(fd.get('coins')), type: min>=30?'long':'short' };
+            if(mode==='edit') state.pool = state.pool.map(p => p.id === id ? newItem : p); else state.pool.push(newItem);
+            save(); document.getElementById('modal-overlay').classList.add('hidden'); render();
+        }
+        function deletePoolItem(id) { if(confirm("Eliminare?")) { state.pool = state.pool.filter(p => p.id !== id); save(); render(); } }
+        function setRewardTab(t) { state.rewardSubTab = t; render(); }
+        function buyReward(id) { const r = state.rewards.find(x => x.id === id); if(state.coins >= r.cost && confirm(`Riscatto?`)) { state.coins -= r.cost; state.inventory.push({...r, uniqueId: Date.now()}); save(); render(); } }
+        function useCoupon(uid) { if(confirm("Usare?")) { state.inventory = state.inventory.filter(i => i.uniqueId !== uid); save(); render(); } }
+        function addReward(e) { e.preventDefault(); const fd = new FormData(e.target); state.rewards.push({ id: Date.now().toString(), title: fd.get('title'), cost: parseInt(fd.get('cost')) }); e.target.reset(); save(); render(); }
+
+        // --- RENDER ---
+        function render() {
+            document.getElementById('coin-display').innerText = state.coins;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`nav-${state.tab}`).classList.add('active');
+            const app = document.getElementById('app'); let h = '';
+
+            if(state.tab === 'home') {
+                const shorts = state.slots.filter(s => s.ex.type === 'short'); const longs = state.slots.filter(s => s.ex.type === 'long');
+                h += `
+                <div class="animate-fade space-y-8">
+                    <div class="bg-primaryLight/50 p-4 rounded-3xl border border-primaryLight flex justify-between items-center">
+                        <div><h2 class="font-bold text-lg text-primaryDark">La tua Routine</h2><p class="text-xs text-textSub font-medium">Clicca sul testo per i dettagli</p></div>
+                        <button onclick="regenerateWeek()" class="bg-white text-primary font-bold text-xs px-4 py-3 rounded-xl shadow-sm border border-primaryLight tap-effect uppercase tracking-wide">Rigenera</button>
+                    </div>
+                    ${renderSection('Rapidi', shorts, 'short')}
+                    ${renderSection('Impegnativi', longs, 'long')}
+                </div>`;
+            } else if(state.tab === 'library') {
+                h += `
+                <div class="animate-fade">
+                    <div class="flex justify-between items-center mb-6"><h2 class="font-black text-2xl text-primaryDark">Archivio</h2>
+                    <button onclick="openModal('add')" class="bg-primary text-white w-12 h-12 rounded-2xl shadow-btn tap-effect flex items-center justify-center text-2xl font-bold">+</button></div>
+                    <div class="space-y-3">
+                        ${state.pool.map(i => `
+                            <div class="bg-white p-5 rounded-3xl border border-white shadow-card flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold text-base mb-1 text-textMain">${i.title}</div>
+                                    <div class="flex items-center gap-2 text-xs font-bold">
+                                        <span class="bg-primaryLight text-primaryDark px-2 py-1 rounded-lg uppercase text-[10px]">${i.type}</span>
+                                        <span class="text-textSub">${i.min}m • ${i.coins}pts</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="openModal('edit', '${i.id}')" class="w-10 h-10 flex items-center justify-center bg-bg rounded-xl text-primary tap-effect"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                                    <button onclick="deletePoolItem('${i.id}')" class="w-10 h-10 flex items-center justify-center bg-bg rounded-xl text-red-500 tap-effect"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                </div>
+                            </div>`).join('')}
+                    </div>
+                </div>`;
+            } else if(state.tab === 'rewards') {
+                h += `
+                <div class="animate-fade">
+                    <div class="flex gap-2 mb-8 bg-white p-2 rounded-3xl shadow-sm border border-white">
+                        <button onclick="setRewardTab('shop')" class="flex-1 py-3 rounded-2xl text-sm font-bold transition-all tap-effect ${state.rewardSubTab==='shop'?'bg-primary text-white shadow-md':'text-textSub'}">Negozio</button>
+                        <button onclick="setRewardTab('inv')" class="flex-1 py-3 rounded-2xl text-sm font-bold transition-all tap-effect ${state.rewardSubTab==='inv'?'bg-primary text-white shadow-md':'text-textSub'}">I Miei Coupon</button>
+                    </div>
+                    ${state.rewardSubTab==='shop' ? `
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            ${state.rewards.map(r => `
+                                <div class="bg-white p-5 rounded-3xl shadow-card flex flex-col justify-between h-40 border border-white">
+                                    <h3 class="font-bold text-sm leading-tight text-textMain">${r.title}</h3>
+                                    <div>
+                                        <div class="text-primary font-black text-2xl mb-2">${r.cost}</div>
+                                        <button onclick="buyReward('${r.id}')" class="w-full py-3 rounded-xl text-xs uppercase font-bold transition-colors ${state.coins>=r.cost?'bg-primary text-white shadow-btn tap-effect':'bg-bg text-textSub'}" ${state.coins<r.cost?'disabled':''}>Riscatta</button>
+                                    </div>
+                                </div>`).join('')}
+                        </div>
+                        <form onsubmit="addReward(event)" class="bg-white p-4 rounded-3xl shadow-card flex gap-3 border border-white">
+                            <input name="title" placeholder="Nome premio" class="flex-1 bg-bg px-4 rounded-xl text-sm font-bold outline-none" required />
+                            <input name="cost" type="number" placeholder="Pt" class="w-16 bg-bg px-2 rounded-xl text-sm font-bold outline-none text-center" required />
+                            <button class="bg-primary text-white w-12 h-12 rounded-xl flex items-center justify-center font-bold text-2xl shadow-btn tap-effect">+</button>
+                        </form>
+                    ` : `
+                        <div class="space-y-4">
+                            ${state.inventory.length===0?'<p class="text-center text-sm text-textSub mt-10">Nessun premio riscattato.</p>':''}
+                            ${state.inventory.map(i => `
+                                <div class="bg-white p-5 rounded-3xl shadow-card flex justify-between items-center border border-white border-l-8 border-l-primary">
+                                    <div><div class="font-bold text-base text-textMain">${i.title}</div><div class="text-[10px] text-primary font-bold uppercase mt-1 tracking-wide">Pronto all'uso</div></div>
+                                    <button onclick="useCoupon(${i.uniqueId})" class="text-xs font-bold bg-primaryLight text-primaryDark px-6 py-3 rounded-xl tap-effect">USA</button>
+                                </div>`).join('')}
+                        </div>`}
+                </div>`;
+            }
+            app.innerHTML = h;
+        }
+
+        function renderSection(t, l, ty) { 
+            return `
+            <div>
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <span class="text-xs font-black text-textSub uppercase tracking-widest">${t}</span>
+                    <button onclick="addSlot('${ty}')" class="bg-primaryLight text-primaryDark w-10 h-10 rounded-xl flex items-center justify-center tap-effect hover:bg-primary hover:text-white transition-colors"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                </div>
+                <div class="space-y-4">
+                    ${l.length===0?'<p class="text-center text-xs text-textSub py-6 bg-white rounded-3xl border border-dashed border-primaryLight">Nessun esercizio qui. Aggiungine uno!</p>':''}
+                    ${l.map(s => `
+                        <div class="bg-white p-5 rounded-[1.5rem] shadow-card flex gap-5 items-center transition-all border border-white ${s.completed?'opacity-50 grayscale':''}">
+                            <div onclick="event.stopPropagation(); toggleSlot(${s.instanceId})" class="w-10 h-10 rounded-full border-[3px] flex-shrink-0 cursor-pointer flex items-center justify-center transition-all tap-effect ${s.completed?'bg-success border-success scale-110':'border-primaryLight bg-bg hover:border-primary'}">
+                                ${s.completed ? '<svg class="text-white w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                            </div>
+                            
+                            <div onclick="viewSlot(${s.instanceId})" class="flex-1 min-w-0 cursor-pointer select-none py-1">
+                                <h4 class="font-bold text-base text-textMain truncate leading-tight ${s.completed?'line-through':''}">${s.ex.title}</h4>
+                                <div class="flex items-center gap-3 mt-2">
+                                    <span class="bg-bg text-textSub px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border border-primaryLight/50">${s.ex.min} MIN</span>
+                                    <span class="bg-primaryLight text-primaryDark px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide">+${s.ex.coins} PTS</span>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-2" onclick="event.stopPropagation()">
+                                <button id="regen-btn-${s.instanceId}" onclick="regenerateSlot(${s.instanceId},'${s.ex.type}')" class="w-10 h-10 rounded-xl bg-bg text-textSub flex items-center justify-center tap-effect hover:text-primary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+                                <button onclick="removeSlot(${s.instanceId})" class="w-10 h-10 rounded-xl bg-bg text-textSub flex items-center justify-center tap-effect hover:text-red-500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                            </div>
+                        </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        init();
+    </script>
+</body>
+</html>
