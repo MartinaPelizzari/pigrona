@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Muoviti Pigrona</title>
+    <title>Muoviti Pigrona + Cloud</title>
 
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#f5f3ff">
@@ -13,19 +13,24 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        bg: '#f5f3ff', // Viola Pastello Sfondo
+                        bg: '#f5f3ff',
                         surface: '#ffffff', 
-                        primary: '#7c3aed', // Viola Vioal (Violet-600)
-                        primaryLight: '#ede9fe', // Viola Chiarissimo (Violet-100)
-                        primaryDark: '#5b21b6', // Viola Scuro
-                        textMain: '#1e1b4b', // Indigo scuro (quasi nero)
-                        textSub: '#6b7280', // Grigio
-                        success: '#10b981', // Verde smeraldo
+                        primary: '#7c3aed',
+                        primaryLight: '#ede9fe',
+                        primaryDark: '#5b21b6',
+                        textMain: '#1e1b4b',
+                        textSub: '#6b7280',
+                        success: '#10b981',
+                        error: '#ef4444',
                     },
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     animation: { 'fade': 'fadeIn 0.2s ease-out' },
@@ -55,7 +60,7 @@
     <div class="bg-bg/90 backdrop-blur-md px-6 py-5 pt-safe flex justify-between items-center border-b border-white/50 z-10 sticky top-0">
         <div>
             <h1 class="text-2xl font-black tracking-tight text-primary">MUOVITI.</h1>
-            <p class="text-xs text-textSub font-semibold">Basta scuse, pigrona.</p>
+            <p class="text-xs text-textSub font-semibold">Stato Cloud: <span id="db-status" class="text-red-400 font-bold">OFFLINE</span></p>
         </div>
         <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-card border border-primaryLight">
             <div class="w-3 h-3 rounded-full bg-yellow-400 border-2 border-yellow-200"></div>
@@ -63,7 +68,9 @@
         </div>
     </div>
 
-    <div id="app" class="flex-1 overflow-y-auto p-5 pb-36 no-scrollbar"></div>
+    <div id="app" class="flex-1 overflow-y-auto p-5 pb-36 no-scrollbar">
+        <div class="flex h-full items-center justify-center text-primary font-bold animate-pulse">Avvio...</div>
+    </div>
 
     <nav class="bg-white border-t border-primaryLight flex justify-around items-center p-3 pb-safe z-50 absolute bottom-0 w-full shadow-[0_-10px_30px_rgba(124,58,237,0.05)]">
         <button onclick="router('home')" class="nav-btn group flex flex-col items-center gap-1 w-20 tap-effect" id="nav-home">
@@ -91,11 +98,32 @@
     </div>
 
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(e => console.log(e)));
-        }
+        // CONFIGURAZIONE FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBl73z-C7VrUXQszRuHq39MirHEVc2LMg4",
+            authDomain: "esercizi-4d01c.firebaseapp.com",
+            projectId: "esercizi-4d01c",
+            storageBucket: "esercizi-4d01c.firebasestorage.app",
+            messagingSenderId: "291134785790",
+            appId: "1:291134785790:web:a5385dd825db48caa4bdaf"
+        };
 
-        // --- STATE ---
+        // Initialize Firebase
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let isFirebaseReady = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            auth = firebase.auth();
+            isFirebaseReady = true;
+        } catch (e) {
+            console.error("Errore inizializzazione Firebase:", e);
+        }
+        
+        // --- STATE DEFAULTS ---
         const DEFAULT_POOL = [
             { id: '1', title: 'Deep Work', desc: '45 minuti di concentrazione totale.', min: 45, coins: 50, type: 'long' },
             { id: '2', title: 'Lettura', desc: 'Leggi almeno 20 pagine.', min: 30, coins: 30, type: 'long' },
@@ -109,23 +137,75 @@
 
         let state = { tab: 'home', rewardSubTab: 'shop', coins: 0, pool: [], slots: [], rewards: [{ id: 'r1', title: 'Caffè', cost: 40 }], inventory: [], isSpinning: false };
 
-        function init() {
+        // --- INIT RAPIDO (OFFLINE FIRST) ---
+        function fastInit() {
+            // 1. Carica subito dal telefono
             const saved = localStorage.getItem('muoviti_mobile_v6');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
                     state = { ...state, ...parsed };
+                    // Controlli di sicurezza
                     if(!state.pool || state.pool.length === 0) state.pool = [...DEFAULT_POOL];
+                    if(!state.slots) state.slots = [];
                 } catch(e) {}
             } else {
                 state.pool = [...DEFAULT_POOL];
                 state.slots = [{ instanceId: 101, ex: state.pool[0], completed: false }, { instanceId: 102, ex: state.pool[3], completed: false }];
             }
             render();
+
+            // 2. Prova a connettersi a Firebase
+            if (isFirebaseReady) {
+                auth.signInAnonymously()
+                    .then(() => console.log("Login Anonimo OK"))
+                    .catch((error) => {
+                        console.error("Errore Auth:", error.message);
+                        const statusDot = document.getElementById('db-status');
+                        if(statusDot) { 
+                            statusDot.innerText = "ERR AUTH"; 
+                            statusDot.title = "Abilita Anonymous Auth nella Firebase Console!";
+                        }
+                    });
+
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        currentUser = user;
+                        const statusDot = document.getElementById('db-status');
+                        if(statusDot) { 
+                            statusDot.innerText = "ONLINE"; 
+                            statusDot.classList.remove('text-red-400'); 
+                            statusDot.classList.add('text-green-500'); 
+                        }
+                        
+                        // Sync
+                        const userRef = db.ref('users/' + user.uid);
+                        userRef.on('value', (snapshot) => {
+                            const data = snapshot.val();
+                            if (data) {
+                                state = { ...state, ...data };
+                                if(!state.pool) state.pool = []; 
+                                if(!state.slots) state.slots = [];
+                                if(!state.rewards) state.rewards = [];
+                                if(!state.inventory) state.inventory = [];
+                                render();
+                            } else {
+                                save();
+                            }
+                        });
+                    }
+                });
+            }
         }
-        function save() { localStorage.setItem('muoviti_mobile_v6', JSON.stringify(state)); }
 
         // --- ACTIONS ---
+        function save() { 
+            localStorage.setItem('muoviti_mobile_v6', JSON.stringify(state));
+            if(currentUser && db) {
+                db.ref('users/' + currentUser.uid).set(state).catch(e => console.log("Sync error", e));
+            }
+        }
+
         function router(t) { state.tab = t; render(); }
         
         function toggleSlot(id) { 
@@ -133,47 +213,33 @@
             if(s){ s.completed = !s.completed; state.coins += s.completed ? s.ex.coins : -s.ex.coins; save(); render(); } 
         }
 
-        // *** RIGENERAZIONE SINGOLA CORRETTA ***
         function regenerateSlot(id, type) {
             const curr = state.slots.find(s => s.instanceId === id);
-            
-            // FILTRO: Prendi tutti quelli del tipo giusto MA escludi quello che c'è già (by ID)
-            const candidates = state.pool.filter(p => p.type === type && p.id !== curr.ex.id);
-            
-            if(candidates.length === 0) {
-                // Se non ci sono altri esercizi disponibili (es. ne hai solo 1 in archivio)
-                return alert("Aggiungi altri esercizi all'archivio per poter cambiare!");
-            }
-            
-            // Animazione
+            let candidates = state.pool.filter(p => p.type === type);
+            if(candidates.length === 0) return alert("Archivio vuoto per questa categoria!");
+
             const btn = document.getElementById(`regen-btn-${id}`);
-            if(btn) {
-                btn.classList.remove('spin-icon');
-                void btn.offsetWidth; // trigger reflow
-                btn.classList.add('spin-icon');
+            if(btn) { btn.classList.remove('spin-icon'); void btn.offsetWidth; btn.classList.add('spin-icon'); }
+
+            if (candidates.length > 1) {
+                candidates = candidates.filter(p => p.id !== curr.ex.id);
             }
 
-            // Scelta casuale tra i candidati (che sono SICURAMENTE diversi da quello attuale)
             const newEx = candidates[Math.floor(Math.random() * candidates.length)];
-            
-            curr.ex = newEx;
+            curr.ex = newEx; 
             curr.completed = false;
-            
             save(); 
-            // Piccolo timeout per lasciar vedere l'animazione iniziare
-            setTimeout(render, 300);
+            setTimeout(render, 50);
         }
 
-        // *** RIGENERAZIONE SETTIMANA CORRETTA ***
         function regenerateWeek() {
-            // NO CONFIRM richiesto
+            if (state.slots.length === 0) return alert("Aggiungi prima degli esercizi con il tasto +");
             state.slots = state.slots.map(s => {
-                // Filtra candidati escludendo quello attuale
-                const candidates = state.pool.filter(p => p.type === s.ex.type && p.id !== s.ex.id);
-                
-                // Se non c'è alternativa, tieni quello che c'è, altrimenti cambialo
+                let candidates = state.pool.filter(p => p.type === s.ex.type);
                 if (candidates.length === 0) return s;
-
+                if (candidates.length > 1) {
+                    candidates = candidates.filter(p => p.id !== s.ex.id);
+                }
                 const newEx = candidates[Math.floor(Math.random() * candidates.length)];
                 return { ...s, ex: newEx, completed: false };
             });
@@ -182,19 +248,16 @@
 
         function addSlot(type) {
             const candidates = state.pool.filter(p => p.type === type);
-            if(candidates.length === 0) return alert("Archivio vuoto.");
+            if(candidates.length === 0) return alert("Archivio vuoto. Crea prima un esercizio!");
             state.slots.push({ instanceId: Date.now(), ex: candidates[Math.floor(Math.random() * candidates.length)], completed: false });
             save(); render();
         }
         
         function removeSlot(id) { 
-            // NO CONFIRM
             state.slots = state.slots.filter(s => s.instanceId !== id); 
-            save(); 
-            render(); 
+            save(); render(); 
         }
         
-        // --- MODAL VIEW ---
         function viewSlot(id) {
             const s = state.slots.find(x => x.instanceId === id); if(!s) return;
             const i = s.ex;
@@ -219,7 +282,6 @@
             `;
         }
 
-        // --- CRUD MODALS ---
         function openModal(mode, id = null) {
             document.getElementById('modal-overlay').classList.remove('hidden');
             let item = { title: '', desc: '', min: '', coins: '' };
@@ -239,49 +301,71 @@
                     </div>
                 </form>`;
         }
+
         function submitForm(e, mode, id) {
             e.preventDefault(); const fd = new FormData(e.target); const min = parseInt(fd.get('min'));
             const newItem = { id: mode==='edit'?id:Date.now().toString(), title: fd.get('title'), desc: fd.get('desc'), min, coins: parseInt(fd.get('coins')), type: min>=30?'long':'short' };
             if(mode==='edit') state.pool = state.pool.map(p => p.id === id ? newItem : p); else state.pool.push(newItem);
             save(); document.getElementById('modal-overlay').classList.add('hidden'); render();
         }
+
         function deletePoolItem(id) { 
-            // NO CONFIRM
             state.pool = state.pool.filter(p => p.id !== id); 
-            save(); 
-            render(); 
+            save(); render(); 
         }
+
+        // --- REWARD LOGIC ---
         function setRewardTab(t) { state.rewardSubTab = t; render(); }
         
         function buyReward(id) { 
             const r = state.rewards.find(x => x.id === id); 
-            // NO CONFIRM CHECK
             if(state.coins >= r.cost) { 
                 state.coins -= r.cost; 
                 state.inventory.push({...r, uniqueId: Date.now()}); 
-                save(); 
-                render(); 
+                save(); render(); 
             } 
         }
 
-        function useCoupon(uid) { 
-            // NO CONFIRM
-            state.inventory = state.inventory.filter(i => i.uniqueId !== uid); 
-            save(); 
-            render(); 
+        function deleteReward(id) {
+            // Elimina premio dal negozio
+            state.rewards = state.rewards.filter(r => r.id !== id);
+            save();
+            render();
         }
 
-        function addReward(e) { e.preventDefault(); const fd = new FormData(e.target); state.rewards.push({ id: Date.now().toString(), title: fd.get('title'), cost: parseInt(fd.get('cost')) }); e.target.reset(); save(); render(); }
+        function useCoupon(uid) { 
+            state.inventory = state.inventory.filter(i => i.uniqueId !== uid); 
+            save(); render(); 
+        }
+
+        function addReward(e) { 
+            e.preventDefault(); const fd = new FormData(e.target); 
+            state.rewards.push({ id: Date.now().toString(), title: fd.get('title'), cost: parseInt(fd.get('cost')) }); 
+            e.target.reset(); save(); render(); 
+        }
 
         // --- RENDER ---
         function render() {
-            document.getElementById('coin-display').innerText = state.coins;
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`nav-${state.tab}`).classList.add('active');
-            const app = document.getElementById('app'); let h = '';
+            const s = state || {};
+            const coins = s.coins || 0;
+            const tab = s.tab || 'home';
+            const slots = s.slots || [];
+            const pool = s.pool || [];
+            const rewards = s.rewards || [];
+            const inventory = s.inventory || [];
+            const rSub = s.rewardSubTab || 'shop';
 
-            if(state.tab === 'home') {
-                const shorts = state.slots.filter(s => s.ex.type === 'short'); const longs = state.slots.filter(s => s.ex.type === 'long');
+            document.getElementById('coin-display').innerText = coins;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            const navBtn = document.getElementById(`nav-${tab}`);
+            if(navBtn) navBtn.classList.add('active');
+            
+            const app = document.getElementById('app'); 
+            let h = '';
+
+            if(tab === 'home') {
+                const shorts = slots.filter(sl => sl.ex.type === 'short'); 
+                const longs = slots.filter(sl => sl.ex.type === 'long');
                 h += `
                 <div class="animate-fade space-y-8">
                     <div class="bg-primaryLight/50 p-4 rounded-3xl border border-primaryLight flex justify-between items-center">
@@ -291,13 +375,13 @@
                     ${renderSection('Rapidi', shorts, 'short')}
                     ${renderSection('Impegnativi', longs, 'long')}
                 </div>`;
-            } else if(state.tab === 'library') {
+            } else if(tab === 'library') {
                 h += `
                 <div class="animate-fade">
                     <div class="flex justify-between items-center mb-6"><h2 class="font-black text-2xl text-primaryDark">Archivio</h2>
                     <button onclick="openModal('add')" class="bg-primary text-white w-12 h-12 rounded-2xl shadow-btn tap-effect flex items-center justify-center text-2xl font-bold">+</button></div>
                     <div class="space-y-3">
-                        ${state.pool.map(i => `
+                        ${pool.map(i => `
                             <div class="bg-white p-5 rounded-3xl border border-white shadow-card flex justify-between items-center">
                                 <div>
                                     <div class="font-bold text-base mb-1 text-textMain">${i.title}</div>
@@ -313,21 +397,22 @@
                             </div>`).join('')}
                     </div>
                 </div>`;
-            } else if(state.tab === 'rewards') {
+            } else if(tab === 'rewards') {
                 h += `
                 <div class="animate-fade">
                     <div class="flex gap-2 mb-8 bg-white p-2 rounded-3xl shadow-sm border border-white">
-                        <button onclick="setRewardTab('shop')" class="flex-1 py-3 rounded-2xl text-sm font-bold transition-all tap-effect ${state.rewardSubTab==='shop'?'bg-primary text-white shadow-md':'text-textSub'}">Negozio</button>
-                        <button onclick="setRewardTab('inv')" class="flex-1 py-3 rounded-2xl text-sm font-bold transition-all tap-effect ${state.rewardSubTab==='inv'?'bg-primary text-white shadow-md':'text-textSub'}">I Miei Coupon</button>
+                        <button onclick="setRewardTab('shop')" class="flex-1 py-3 rounded-2xl text-sm font-bold transition-all tap-effect ${rSub==='shop'?'bg-primary text-white shadow-md':'text-textSub'}">Negozio</button>
+                        <button onclick="setRewardTab('inv')" class="flex-1 py-3 rounded-2xl text-sm font-bold transition-all tap-effect ${rSub==='inv'?'bg-primary text-white shadow-md':'text-textSub'}">I Miei Coupon</button>
                     </div>
-                    ${state.rewardSubTab==='shop' ? `
+                    ${rSub==='shop' ? `
                         <div class="grid grid-cols-2 gap-4 mb-8">
-                            ${state.rewards.map(r => `
-                                <div class="bg-white p-5 rounded-3xl shadow-card flex flex-col justify-between h-40 border border-white">
-                                    <h3 class="font-bold text-sm leading-tight text-textMain">${r.title}</h3>
+                            ${rewards.map(r => `
+                                <div class="bg-white p-5 rounded-3xl shadow-card flex flex-col justify-between h-40 border border-white relative group">
+                                    <button onclick="deleteReward('${r.id}')" class="absolute top-3 right-3 text-gray-300 hover:text-red-500 tap-effect p-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                    <h3 class="font-bold text-sm leading-tight text-textMain pr-6">${r.title}</h3>
                                     <div>
                                         <div class="text-primary font-black text-2xl mb-2">${r.cost}</div>
-                                        <button onclick="buyReward('${r.id}')" class="w-full py-3 rounded-xl text-xs uppercase font-bold transition-colors ${state.coins>=r.cost?'bg-primary text-white shadow-btn tap-effect':'bg-bg text-textSub'}" ${state.coins<r.cost?'disabled':''}>Riscatta</button>
+                                        <button onclick="buyReward('${r.id}')" class="w-full py-3 rounded-xl text-xs uppercase font-bold transition-colors ${coins>=r.cost?'bg-primary text-white shadow-btn tap-effect':'bg-bg text-textSub'}" ${coins<r.cost?'disabled':''}>Riscatta</button>
                                     </div>
                                 </div>`).join('')}
                         </div>
@@ -338,8 +423,8 @@
                         </form>
                     ` : `
                         <div class="space-y-4">
-                            ${state.inventory.length===0?'<p class="text-center text-sm text-textSub mt-10">Nessun premio riscattato.</p>':''}
-                            ${state.inventory.map(i => `
+                            ${inventory.length===0?'<p class="text-center text-sm text-textSub mt-10">Nessun premio riscattato.</p>':''}
+                            ${inventory.map(i => `
                                 <div class="bg-white p-5 rounded-3xl shadow-card flex justify-between items-center border border-white border-l-8 border-l-primary">
                                     <div><div class="font-bold text-base text-textMain">${i.title}</div><div class="text-[10px] text-primary font-bold uppercase mt-1 tracking-wide">Pronto all'uso</div></div>
                                     <button onclick="useCoupon(${i.uniqueId})" class="text-xs font-bold bg-primaryLight text-primaryDark px-6 py-3 rounded-xl tap-effect">USA</button>
@@ -382,7 +467,9 @@
             </div>`;
         }
 
-        init();
+        // --- AVVIO DELL'APP ---
+        fastInit();
+
     </script>
 </body>
 </html>
